@@ -7,9 +7,12 @@ from pathlib import Path
 
 
 RAG_PROJECT_DIR = Path(__file__).resolve().parent.parent / "Day08_RAG_pipeline_cohort2"
+RAG_SRC_DIR = RAG_PROJECT_DIR / "src"
 
-if str(RAG_PROJECT_DIR) not in sys.path:
-    sys.path.append(str(RAG_PROJECT_DIR))
+for path in (RAG_PROJECT_DIR, RAG_SRC_DIR):
+    path_str = str(path)
+    if path.exists() and path_str not in sys.path:
+        sys.path.insert(0, path_str)
 
 from src.task10_generation import generate_with_citation  # noqa: E402
 
