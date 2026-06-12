@@ -29,7 +29,7 @@ COPY --from=builder /root/.local /home/agent/.local
 COPY app/ ./app/
 COPY Day08_RAG_pipeline_cohort2/ ./Day08_RAG_pipeline_cohort2/
 COPY Day08_RAG_pipeline_cohort2/src/ ./src/
-COPY Day08_RAG_pipeline_cohort2/data/ ./data/
+COPY rag_data/ ./data/
 
 RUN chown -R agent:agent /app
 
