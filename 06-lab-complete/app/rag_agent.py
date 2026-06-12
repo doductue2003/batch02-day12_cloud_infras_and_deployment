@@ -10,7 +10,7 @@ RAG_PROJECT_DIR = Path(__file__).resolve().parent.parent / "Day08_RAG_pipeline_c
 RAG_SRC_DIR = RAG_PROJECT_DIR / "src"
 CONTAINER_SRC_DIR = Path(__file__).resolve().parent.parent / "src"
 
-for path in (RAG_PROJECT_DIR, RAG_SRC_DIR, CONTAINER_SRC_DIR):
+for path in (CONTAINER_SRC_DIR, RAG_SRC_DIR, RAG_PROJECT_DIR):
     path_str = str(path)
     if path.exists() and path_str not in sys.path:
         sys.path.insert(0, path_str)

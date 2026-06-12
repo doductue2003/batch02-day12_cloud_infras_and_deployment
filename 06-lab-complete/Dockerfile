@@ -27,8 +27,7 @@ COPY --from=builder /root/.local /home/agent/.local
 
 # Copy application and the personal RAG project
 COPY app/ ./app/
-COPY Day08_RAG_pipeline_cohort2/ ./Day08_RAG_pipeline_cohort2/
-COPY Day08_RAG_pipeline_cohort2/src/ ./src/
+COPY rag_src/ ./src/
 COPY rag_data/ ./data/
 
 RUN chown -R agent:agent /app
@@ -36,7 +35,7 @@ RUN chown -R agent:agent /app
 USER agent
 
 ENV PATH=/home/agent/.local/bin:$PATH
-ENV PYTHONPATH=/app:/app/Day08_RAG_pipeline_cohort2:/home/agent/.local/lib/python3.11/site-packages
+ENV PYTHONPATH=/app:/home/agent/.local/lib/python3.11/site-packages
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
