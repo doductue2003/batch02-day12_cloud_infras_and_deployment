@@ -30,9 +30,9 @@ from pydantic import BaseModel, Field
 import uvicorn
 
 from app.config import settings
+from app.rag_agent import ask_rag_agent
 
 # Mock LLM (thay bằng OpenAI/Anthropic khi có API key)
-from utils.mock_llm import ask as llm_ask
 
 # ─────────────────────────────────────────────────────────
 # Logging — JSON structured
@@ -145,7 +145,8 @@ async def request_middleware(request: Request, call_next):
         # Security headers
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers.pop("server", None)
+        if "server" in response.headers:
+            del response.headers["server"]
         duration = round((time.time() - start) * 1000, 1)
         logger.info(json.dumps({
             "event": "request",
@@ -171,6 +172,9 @@ class AskResponse(BaseModel):
     answer: str
     model: str
     timestamp: str
+    sources: list[dict] = Field(default_factory=list)
+    used_llm: bool = False
+    generation_mode: str = "unknown"
 
 # ─────────────────────────────────────────────────────────
 # Endpoints
@@ -214,7 +218,8 @@ async def ask_agent(
         "client": str(request.client.host) if request.client else "unknown",
     }))
 
-    answer = llm_ask(body.question)
+    rag_result = ask_rag_agent(body.question)
+    answer = rag_result["answer"]
 
     output_tokens = len(answer.split()) * 2
     check_and_record_cost(0, output_tokens)
@@ -224,6 +229,9 @@ async def ask_agent(
         answer=answer,
         model=settings.llm_model,
         timestamp=datetime.now(timezone.utc).isoformat(),
+        sources=rag_result["sources"],
+        used_llm=rag_result["used_llm"],
+        generation_mode=rag_result["generation_mode"],
     )
 
 
@@ -231,7 +239,10 @@ async def ask_agent(
 def health():
     """Liveness probe. Platform restarts container if this fails."""
     status = "ok"
-    checks = {"llm": "mock" if not settings.openai_api_key else "openai"}
+    checks = {
+        "agent": "day08-rag-pipeline",
+        "llm": "extractive-fallback" if not settings.xah_api_key else "xah-compatible-chat",
+    }
     return {
         "status": status,
         "version": settings.app_version,

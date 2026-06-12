@@ -2,6 +2,14 @@
 import os
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR / ".env.local", override=True)
 
 
 @dataclass
@@ -19,6 +27,13 @@ class Settings:
     # LLM
     openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
     llm_model: str = field(default_factory=lambda: os.getenv("LLM_MODEL", "gpt-4o-mini"))
+    xah_api_url: str = field(
+        default_factory=lambda: os.getenv("XAH_API_URL", "https://api.xah.io/v1/chat/completions")
+    )
+    xah_api_key: str = field(default_factory=lambda: os.getenv("XAH_API_KEY", ""))
+    xah_model: str = field(
+        default_factory=lambda: os.getenv("XAH_MODEL", "vuduongcalvin/gemini-3.1-flash-lite")
+    )
 
     # Security
     agent_api_key: str = field(default_factory=lambda: os.getenv("AGENT_API_KEY", "dev-key-change-me"))
@@ -47,8 +62,8 @@ class Settings:
                 raise ValueError("AGENT_API_KEY must be set in production!")
             if self.jwt_secret == "dev-jwt-secret":
                 raise ValueError("JWT_SECRET must be set in production!")
-        if not self.openai_api_key:
-            logger.warning("OPENAI_API_KEY not set — using mock LLM")
+        if not self.xah_api_key:
+            logger.warning("XAH_API_KEY not set — using RAG extractive fallback")
         return self
 
 

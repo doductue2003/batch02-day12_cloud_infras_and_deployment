@@ -25,9 +25,9 @@ WORKDIR /app
 # Copy packages từ builder
 COPY --from=builder /root/.local /home/agent/.local
 
-# Copy application
+# Copy application and the personal RAG project
 COPY app/ ./app/
-COPY utils/ ./utils/
+COPY Day08_RAG_pipeline_cohort2/ ./Day08_RAG_pipeline_cohort2/
 
 RUN chown -R agent:agent /app
 

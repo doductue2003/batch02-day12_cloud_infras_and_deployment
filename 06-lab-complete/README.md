@@ -1,95 +1,189 @@
-# Lab 12 — Complete Production Agent
+# Lab 12 - Complete Production RAG Agent
 
-Kết hợp TẤT CẢ những gì đã học trong 1 project hoàn chỉnh.
+Dự án này productionize lại **Day08 RAG Pipeline** thành một API agent hoàn chỉnh, áp dụng các bước đã học trong Day 12: Docker, environment config, health check, readiness, API key authentication, rate limiting, cost guard, structured logging và deploy config.
+
+## Dự Án Được Replace
+
+Agent cá nhân/nhóm được dùng:
+
+```text
+Day08_RAG_pipeline_cohort2
+```
+
+Chức năng chính:
+
+- Nhận câu hỏi từ user qua endpoint `POST /ask`.
+- Truy xuất tài liệu từ dữ liệu RAG local trong `Day08_RAG_pipeline_cohort2/data`.
+- Sinh câu trả lời tiếng Việt có citation.
+- Nếu có `XAH_API_KEY`, agent dùng multi-agent generation.
+- Nếu không có API key LLM, agent vẫn chạy offline bằng extractive fallback.
 
 ## Checklist Deliverable
 
-- [x] Dockerfile (multi-stage, < 500 MB)
-- [x] docker-compose.yml (agent + redis)
-- [x] .dockerignore
-- [x] Health check endpoint (`GET /health`)
-- [x] Readiness endpoint (`GET /ready`)
-- [x] API Key authentication
+- [x] Dockerfile multi-stage
+- [x] docker-compose.yml gồm agent + redis
+- [x] .dockerignore loại bỏ `.env`, `.git`, cache
+- [x] Health check endpoint: `GET /health`
+- [x] Readiness endpoint: `GET /ready`
+- [x] API Key authentication bằng header `X-API-Key`
 - [x] Rate limiting
 - [x] Cost guard
 - [x] Config từ environment variables
-- [x] Structured logging
+- [x] Structured JSON logging
 - [x] Graceful shutdown
-- [x] Public URL ready (Railway / Render config)
-
----
+- [x] Railway config
+- [x] Render config
+- [ ] Public API URL sau khi deploy
 
 ## Cấu Trúc
 
-```
+```text
 06-lab-complete/
 ├── app/
-│   ├── main.py         # Entry point — kết hợp tất cả
-│   ├── config.py       # 12-factor config
-│   ├── auth.py         # API Key + JWT
-│   ├── rate_limiter.py # Rate limiting
-│   └── cost_guard.py   # Budget protection
-├── Dockerfile          # Multi-stage, production-ready
-├── docker-compose.yml  # Full stack
-├── railway.toml        # Deploy Railway
-├── render.yaml         # Deploy Render
-├── .env.example        # Template
+│   ├── main.py          # FastAPI production wrapper
+│   ├── config.py        # 12-factor config
+│   └── rag_agent.py     # Adapter gọi Day08 RAG pipeline
+├── Day08_RAG_pipeline_cohort2/
+│   ├── src/
+│   │   └── task10_generation.py
+│   └── data/
+├── Dockerfile
+├── docker-compose.yml
+├── railway.toml
+├── render.yaml
+├── .env.example
 ├── .dockerignore
 └── requirements.txt
 ```
 
----
+## Chạy Local Bằng Python
 
-## Chạy Local
+Từ thư mục `06-lab-complete`:
 
 ```bash
-# 1. Setup
-cp .env.example .env
-
-# 2. Chạy với Docker Compose
-docker compose up
-
-# 3. Test
-curl http://localhost/health
-
-# 4. Lấy API key từ .env, test endpoint
-API_KEY=$(grep AGENT_API_KEY .env | cut -d= -f2)
-curl -H "X-API-Key: $API_KEY" \
-     -X POST http://localhost/ask \
-     -H "Content-Type: application/json" \
-     -d '{"question": "What is deployment?"}'
+cp .env.example .env.local
+pip install -r requirements.txt
+python -m app.main
 ```
 
----
+PowerShell:
 
-## Deploy Railway (< 5 phút)
+```powershell
+Copy-Item .env.example .env.local
+pip install -r requirements.txt
+python -m app.main
+```
+
+Mở terminal khác và test:
 
 ```bash
-# Cài Railway CLI
-npm i -g @railway/cli
+curl http://localhost:8000/health
+curl http://localhost:8000/ready
+```
 
-# Login và deploy
+Gọi RAG Agent:
+
+```bash
+curl -H "X-API-Key: dev-key-change-me-in-production" \
+  -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Luật quy định thế nào về tàng trữ trái phép chất ma túy?"}'
+```
+
+PowerShell:
+
+```powershell
+curl -H "X-API-Key: dev-key-change-me-in-production" `
+  -X POST http://localhost:8000/ask `
+  -H "Content-Type: application/json" `
+  -d '{"question":"Luật quy định thế nào về tàng trữ trái phép chất ma túy?"}'
+```
+
+## Chạy Bằng Docker Compose
+
+Từ thư mục `06-lab-complete`:
+
+```bash
+cp .env.example .env.local
+docker compose up --build
+```
+
+Test:
+
+```bash
+curl http://localhost:8000/health
+curl -H "X-API-Key: dev-key-change-me-in-production" \
+  -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Tin tức nào liên quan đến ma túy?"}'
+```
+
+## Environment Variables
+
+Các biến quan trọng trong `.env.local` hoặc trên cloud:
+
+```env
+ENVIRONMENT=production
+DEBUG=false
+APP_NAME=Production RAG Agent
+AGENT_API_KEY=your-secret-key
+JWT_SECRET=your-jwt-secret
+RATE_LIMIT_PER_MINUTE=20
+DAILY_BUDGET_USD=5.0
+XAH_API_KEY=
+```
+
+Ghi chú:
+
+- `AGENT_API_KEY` bắt buộc đổi khi deploy production.
+- `XAH_API_KEY` là optional. Nếu để trống, RAG Agent vẫn trả lời bằng fallback offline.
+- Không commit `.env.local` hoặc `.env` lên Git.
+
+## Deploy Railway
+
+```bash
 railway login
 railway init
-railway variables set OPENAI_API_KEY=sk-...
+railway variables set ENVIRONMENT=production
+railway variables set DEBUG=false
+railway variables set APP_NAME="Production RAG Agent"
 railway variables set AGENT_API_KEY=your-secret-key
+railway variables set JWT_SECRET=your-jwt-secret
+railway variables set XAH_API_KEY=your-xah-key
 railway up
-
-# Nhận public URL!
 railway domain
 ```
 
----
+Nếu không dùng LLM endpoint thật, có thể bỏ qua biến `XAH_API_KEY`.
 
 ## Deploy Render
 
-1. Push repo lên GitHub
-2. Render Dashboard → New → Blueprint
-3. Connect repo → Render đọc `render.yaml`
-4. Set secrets: `OPENAI_API_KEY`, `AGENT_API_KEY`
-5. Deploy → Nhận URL!
+1. Push repo lên GitHub.
+2. Vào Render Dashboard.
+3. Chọn **New -> Blueprint**.
+4. Connect repo.
+5. Render đọc file `render.yaml`.
+6. Set secrets: `AGENT_API_KEY`, `JWT_SECRET`, optional `XAH_API_KEY`.
+7. Deploy và lấy public URL.
 
----
+## Public API URL
+
+Sau khi deploy, điền URL thật vào đây:
+
+```text
+API URL: <chưa deploy>
+Health: <chưa deploy>/health
+Ask: POST <chưa deploy>/ask
+```
+
+Ví dụ request production:
+
+```bash
+curl -H "X-API-Key: your-secret-key" \
+  -X POST https://your-app.up.railway.app/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Luật quy định thế nào về tàng trữ trái phép chất ma túy?"}'
+```
 
 ## Kiểm Tra Production Readiness
 
@@ -97,4 +191,4 @@ railway domain
 python check_production_ready.py
 ```
 
-Script này kiểm tra tất cả items trong checklist và báo cáo những gì còn thiếu.
+Script này kiểm tra các file và tính năng quan trọng trước khi nộp bài.
